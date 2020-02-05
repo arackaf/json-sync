@@ -13,7 +13,10 @@ const foundFiles = glob.sync(targetGlob, { cwd: SOURCE_DIR });
 
 const conflicts = new Map([]);
 
+let overwrite = process.argv[process.argv.length - 1] == "o";
+
 for (let file of foundFiles) {
+  let anyChanges = false;
   const sourceFile = fs.readFileSync(path.join(SOURCE_DIR, file), { encoding: "utf8" });
   const destFile = fs.readFileSync(path.join(DEST_DIR, file), { encoding: "utf8" });
 
@@ -22,19 +25,36 @@ for (let file of foundFiles) {
 
   Object.keys(source).forEach(k => {
     if (dest[k] && dest[k] != source[k]) {
-      if (!conflicts.has(k)){
-        conflicts.set(k, []);
+      if (overwrite) {
+        anyChanges = true;
+        dest[k] = source[k];
+      } else {
+        if (!conflicts.has(k)) {
+          conflicts.set(k, []);
+        }
+        conflicts.get(k).push(file);
       }
-      conflicts.get(k).push(file);
-      //console.log(colors.red(`Mismatch in ${file} -> ${k}. Source: \n${source[k]}\nCurrent value in destination:\n${dest[k]}\n`));
     }
   });
+
+  if (anyChanges) {
+    fs.writeFileSync(path.join(DEST_DIR, file), toJson(dest, /en_US/.test(file) ? "  " : "    "));
+  }
+}
+
+function toJson(obj, indent) {
+  obj = Object.keys(obj)
+    .sort()
+    .reduce((hash, k) => ((hash[k] = obj[k]), hash), {});
+  return `{\n${Object.keys(obj)
+    .map(k => `${indent}"${k}": ${JSON.stringify(obj[k])}`)
+    .join(",\n")}\n}`;
 }
 
 let logs = [];
 for (let pair of conflicts) {
   logs.push(`${pair[0]}: ${pair[1].length}`);
-  for (let file of pair[1]){
+  for (let file of pair[1]) {
     logs.push(file);
   }
   logs.push("");
