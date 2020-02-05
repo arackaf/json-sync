@@ -16,7 +16,6 @@ const conflicts = new Map([]);
 let overwrite = process.argv[process.argv.length - 1] == "o";
 
 for (let file of foundFiles) {
-  let anyChanges = false;
   const sourceFile = fs.readFileSync(path.join(SOURCE_DIR, file), { encoding: "utf8" });
   const destFile = fs.readFileSync(path.join(DEST_DIR, file), { encoding: "utf8" });
 
@@ -26,7 +25,6 @@ for (let file of foundFiles) {
   Object.keys(source).forEach(k => {
     if (dest[k] && dest[k] != source[k]) {
       if (overwrite) {
-        anyChanges = true;
         dest[k] = source[k];
       } else {
         if (!conflicts.has(k)) {
@@ -34,10 +32,12 @@ for (let file of foundFiles) {
         }
         conflicts.get(k).push(file);
       }
+    } else if (overwrite) {
+      dest[k] = source[k];
     }
   });
 
-  if (anyChanges) {
+  if (overwrite) {
     fs.writeFileSync(path.join(DEST_DIR, file), toJson(dest, /en_US/.test(file) ? "  " : "    "));
   }
 }
